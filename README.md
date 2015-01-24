@@ -4,7 +4,7 @@ an openstack object-storage client for browser
 
 ## usage
 
-create a client
+creating a client
 
 ```javascript
 var client = new osos.Client({
@@ -48,10 +48,9 @@ client.upload(file, container, {
 ### more api
 
 ```javascript
-client.listContainers()
-client.listOjbects(container)
-client.delObject(container, object)
-});
+client.listContainers();
+client.listOjbects(container);
+client.delObject(container, object);
 ```
 
 ### examples
@@ -70,6 +69,16 @@ server {
         proxy_pass http://object-storage:8080;
     }
 }
+```
+
+after nginx is setup, visit localhost:8000/examples/list.html and localhost:8000/examples/upload.html
+
+### building osos.js
+
+just run:
+
+```sh
+gulp
 ```
 
 ## dependencies
