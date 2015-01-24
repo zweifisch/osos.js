@@ -1,0 +1,37 @@
+{
+  "name": "osos",
+  "version": "0.0.1",
+  "description": "openstack object-storage client",
+  "main": "dest/osos.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "openstack",
+    "object-storage",
+    "swift"
+  ],
+  "author": "zf",
+  "license": "MIT",
+  "devDependencies": {
+    "gulp": "^3.8.10",
+    "gulp-concat": "^2.4.3",
+    "gulp-wrap": "^0.10.0"
+  },
+  "directories": {
+    "example": "examples"
+  },
+  "dependencies": {
+    "gulp-concat": "^2.4.3",
+    "gulp": "^3.8.10",
+    "gulp-wrap": "^0.10.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zweifisch/osos.js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zweifisch/osos.js/issues"
+  },
+  "homepage": "https://github.com/zweifisch/osos.js"
+}

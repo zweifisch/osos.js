@@ -1,0 +1,38 @@
+<meta charset="UTF-8">
+<input type="file" id="input">
+
+<button onclick="main()">upload</button>
+
+<div id="progress"></div>
+
+<script src="../bower_components/spark-md5/spark-md5.js"></script>
+<script src="../dist/osos.js"></script>
+<script src="client.js"></script>
+
+<script>
+ var main = function() {
+   var file = document.getElementById('input').files[0];
+   var promise;
+   var progress = function(p) {
+     document.getElementById("progress").textContent = "progres: " + (p * 100).toFixed(2)
+   };
+
+   if (file.size > 1024 * 1024 * 20) {
+     promise = client.upload(file, "mybucket", {
+       onProgress: progress,
+       name: file.name,
+       concurrency: 3,
+       sliceSize: 1 // Mb
+     });
+   } else {
+     promise = client.directUpload(file, "mybucket", {
+       onProgress: progress
+     });
+   }
+   promise.then(function() {
+     console.log("done");
+   }).catch(function(error) {
+     console.log("failed", error);
+   });
+ };
+</script>

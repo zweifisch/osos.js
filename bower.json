@@ -1,0 +1,36 @@
+{
+  "name": "osos.js",
+  "main": "dist/osos.js",
+  "version": "0.0.1",
+  "authors": [
+    "Feng Zhou <zf.pascal@gmail.com>"
+  ],
+  "keywords": [
+    "openstack",
+    "object-storage",
+    "swift",
+    "upload"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests",
+    "examples",
+    "src"
+  ],
+  "dependencies": {
+    "spark-md5": "~0.0.5"
+  },
+  "devDependencies": {
+    "react": "~0.12.2"
+  },
+  "homepage": "https://github.com/zweifisch/osos.js",
+  "description": "openstack object-storage client",
+  "moduleType": [
+    "globals",
+    "node"
+  ]
+}
