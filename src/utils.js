@@ -23,7 +23,7 @@ var md5sum = function(blob) {
     });
 };
 
-var request = function(method, body, url, token, progressCallback) {
+var request = function(method, body, url, token, onProgress) {
     return new Promise(function(resolve, reject) {
 
         var xhr = new XMLHttpRequest;
@@ -40,9 +40,9 @@ var request = function(method, body, url, token, progressCallback) {
         xhr.addEventListener("error", reject, false);
         xhr.upload.addEventListener("error", reject, false);
 
-        if (progressCallback) {
+        if (onProgress) {
             xhr.upload.addEventListener("progress", function(e) {
-                progressCallback(e.loaded / e.total);
+                onProgress(e.loaded, e.total);
             });
         }
 

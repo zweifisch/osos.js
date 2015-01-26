@@ -8,10 +8,16 @@ var Client = function(opts) {
 };
 
 Client.prototype.check = function(container, slice, path) {
-    var etag = request("GET", null, join(this.baseUrl, container, path), this.token);
+    var etag = request("HEAD", null, join(this.baseUrl, container, path), this.token);
     return Promise.all([slice.hash, etag]).then(function(vals) {
-        log("local hash " + vals[0] + " remote " + vals[1].etag);
-        return vals[0] === vals[1].etag;
+        if (vals[1].code === 404) {
+            return false;
+        }
+        if (vals[1].code === 200) {
+            log("local hash " + vals[0] + " remote " + vals[1].etag);
+            return vals[0] === vals[1].etag;
+        }
+        throw Error(vals[1].body);
     });
 };
 
@@ -20,7 +26,7 @@ Client.prototype.commit = function(container, filename, slices) {
                    join(this.baseUrl, container, filename + "?multipart-manifest=put"));
 };
 
-Client.prototype.uploadSlice = function(container, slice, filename) {
+Client.prototype.uploadSlice = function(container, slice, filename, onProgress) {
     var path = filename + "-" + slice.number;
     var uploaded = this.check(container, slice, path);
     var self = this;
@@ -30,7 +36,7 @@ Client.prototype.uploadSlice = function(container, slice, filename) {
             return true;
         } else {
             log("uploading slice " + slice.number);
-            return request("PUT", slice.blob, join(self.baseUrl, container, path), self.token).then(checkStatus);
+            return request("PUT", slice.blob, join(self.baseUrl, container, path), self.token, onProgress).then(checkStatus);
         }
     });
 };
@@ -47,9 +53,26 @@ Client.prototype.uploadAsSlices = function(file, filename, container, opts) {
 
     var self = this;
 
+    if (opts.onProgress) {
+        var onProgress = function() {
+            var loaded = queue.reduce(function(loaded, slice){
+                if (slice.running) {
+                    return loaded + (slice.loaded || 0);
+                } else if (slice.blob) {
+                    return loaded;
+                }
+                return loaded + slice.size;
+            }, 0);
+            opts.onProgress(loaded / file.size);
+        };
+    }
+
     return new Promise(function(resolve, reject) {
         var processSlice = function(slice) {
-            var promise = self.uploadSlice(container, slice, filename);
+            var promise = self.uploadSlice(container, slice, filename, function(loaded) {
+                this.loaded = loaded;
+                opts.onProgress && onProgress();
+            }.bind(slice));
             slice.running = true;
             queue.push(slice);
             promise.then(function() {
@@ -99,27 +122,20 @@ Client.prototype.uploadAsSlices = function(file, filename, container, opts) {
             } else {
                 taskRunning.length || resolve(queue);
             }
-
-            if (opts && opts.onProgress) {
-                var taskDone = queue.filter(function(x) {
-                    return !x.running && !x.blob;
-                });
-                opts.onProgress(taskDone.length/slices.slicesTotal);
-            }
         };
         enqueue();
     });
 };
 
 Client.prototype.ensureContainer = function(container) {
-    return request("PUT", null, join(this.baseUrl, container), this.token);
+    return request("PUT", null, join(this.baseUrl, container), this.token).then(checkStatus);
 };
 
 Client.prototype.upload = function(file, container, opts) {
     var filename = opts.name || file.name;
     var self = this;
     var segmentContainer = "_segments_" + container;
-    var slices = this.ensureContainer(segmentContainer).then(function(){
+    var slices = this.ensureContainer(segmentContainer).then(function() {
         return self.uploadAsSlices(file, filename, segmentContainer, opts);
     });
 
@@ -148,7 +164,13 @@ Client.prototype.upload = function(file, container, opts) {
 Client.prototype.directUpload = function(file, container, opts) {
     opts = opts || {};
     var filename = opts.name || file.name;
-    return request("PUT", file, join(this.baseUrl, container, filename), this.token, opts.onProgress).then(checkStatus);
+    var onProgress;
+    if (opts.onProgress) {
+        onProgress = function(loaded, total) {
+            opts.onProgress(loaded/total);
+        };
+    }
+    return request("PUT", file, join(this.baseUrl, container, filename), this.token, onProgress).then(checkStatus);
 };
 
 Client.prototype.listObjects = function(container) {
@@ -215,7 +237,7 @@ var md5sum = function(blob) {
     });
 };
 
-var request = function(method, body, url, token, progressCallback) {
+var request = function(method, body, url, token, onProgress) {
     return new Promise(function(resolve, reject) {
 
         var xhr = new XMLHttpRequest;
@@ -232,9 +254,9 @@ var request = function(method, body, url, token, progressCallback) {
         xhr.addEventListener("error", reject, false);
         xhr.upload.addEventListener("error", reject, false);
 
-        if (progressCallback) {
+        if (onProgress) {
             xhr.upload.addEventListener("progress", function(e) {
-                progressCallback(e.loaded / e.total);
+                onProgress(e.loaded, e.total);
             });
         }
 

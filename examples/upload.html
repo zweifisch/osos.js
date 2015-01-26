@@ -22,7 +22,7 @@
        onProgress: progress,
        name: file.name,
        concurrency: 3,
-       sliceSize: 1 // Mb
+       sliceSize: 2 // Mb
      });
    } else {
      promise = client.directUpload(file, "mybucket", {
