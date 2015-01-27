@@ -64,6 +64,16 @@ var parseBody = function(response) {
     return response;
 };
 
+var makeQueryString = function(obj) {
+    var ret = [];
+    for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            ret.push(encodeURIComponent(key) + "=" + encodeURIComponent(obj[key]));
+        }
+    }
+    return ret.join("&");
+};
+
 var attr = function(name) {
     return function(object) {
         return object ? object[name] : null;

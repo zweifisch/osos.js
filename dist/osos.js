@@ -173,12 +173,16 @@ Client.prototype.directUpload = function(file, container, opts) {
     return request("PUT", file, join(this.baseUrl, container, filename), this.token, onProgress).then(checkStatus);
 };
 
-Client.prototype.listObjects = function(container) {
-    return request("GET", null, join(this.baseUrl, container) + "?format=json").then(parseBody).then(attr("body"));
+Client.prototype.listObjects = function(container, params) {
+    params = params || {};
+    params.format = params.format || "json";
+    return request("GET", null, join(this.baseUrl, container) + "?" + makeQueryString(params)).then(parseBody).then(attr("body"));
 };
 
-Client.prototype.listContainers = function() {
-    return request("GET", null, this.baseUrl + "?format=json").then(parseBody).then(attr("body"));
+Client.prototype.listContainers = function(params) {
+    params = params || {};
+    params.format = params.format || "json";
+    return request("GET", null, this.baseUrl + "?" + makeQueryString(params)).then(parseBody).then(attr("body"));
 };
 
 Client.prototype.delContainer = function(container) {
@@ -276,6 +280,16 @@ var parseBody = function(response) {
         response.body = JSON.parse(response.body);
     }
     return response;
+};
+
+var makeQueryString = function(obj) {
+    var ret = [];
+    for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            ret.push(encodeURIComponent(key) + "=" + encodeURIComponent(obj[key]));
+        }
+    }
+    return ret.join("&");
 };
 
 var attr = function(name) {
