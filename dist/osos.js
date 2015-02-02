@@ -7,23 +7,35 @@ var Client = function(opts) {
     this.delimiter = opts.delimiter || "/";
 };
 
+Client.prototype.getObjectInfo = function(container, path) {
+    return request({
+        method: "HEAD",
+        url: join(this.baseUrl, container, path),
+        getHeaders: ["Etag", "X-Static-Large-Object"]
+    }).then(function(response) {
+        return {
+            etag: response.headers.Etag,
+            isSLO: response.headers["X-Static-Large-Object"] === "True",
+            isDLO: !!response.headers["X-Object-Manifest"]
+        };
+    });
+};
+
 Client.prototype.check = function(container, slice, path) {
-    var etag = request("HEAD", null, join(this.baseUrl, container, path), this.token);
+    var etag = this.getObjectInfo(container, path);
     return Promise.all([slice.hash, etag]).then(function(vals) {
-        if (vals[1].code === 404) {
-            return false;
-        }
-        if (vals[1].code === 200) {
-            log("local hash " + vals[0] + " remote " + vals[1].etag);
-            return vals[0] === vals[1].etag;
-        }
-        throw Error(vals[1].body);
+        log("local hash " + vals[0] + " remote " + vals[1].etag);
+        return vals[0] === vals[1].etag;
     });
 };
 
 Client.prototype.commit = function(container, filename, slices) {
-    return request("PUT", JSON.stringify(slices),
-                   join(this.baseUrl, container, filename + "?multipart-manifest=put"));
+    return request({
+        method: "PUT",
+        body: JSON.stringify(slices),
+        url: join(this.baseUrl, container, filename),
+        params: {"multipart-manifest":"put"}
+    });
 };
 
 Client.prototype.uploadSlice = function(container, slice, filename, onProgress) {
@@ -36,7 +48,13 @@ Client.prototype.uploadSlice = function(container, slice, filename, onProgress) 
             return true;
         } else {
             log("uploading slice " + slice.number);
-            return request("PUT", slice.blob, join(self.baseUrl, container, path), self.token, onProgress).then(checkStatus);
+            return request({
+                method:"PUT",
+                body: slice.blob,
+                url: join(self.baseUrl, container, path),
+                token: self.token,
+                onProgress: onProgress
+            }).then(checkStatus);
         }
     });
 };
@@ -128,7 +146,11 @@ Client.prototype.uploadAsSlices = function(file, filename, container, opts) {
 };
 
 Client.prototype.ensureContainer = function(container) {
-    return request("PUT", null, join(this.baseUrl, container), this.token).then(checkStatus);
+    return request({
+        method: "PUT",
+        url: join(this.baseUrl, container),
+        token: this.token
+    }).then(checkStatus);
 };
 
 Client.prototype.upload = function(file, container, opts) {
@@ -170,40 +192,63 @@ Client.prototype.directUpload = function(file, container, opts) {
             opts.onProgress(loaded/total);
         };
     }
-    return request("PUT", file, join(this.baseUrl, container, filename), this.token, onProgress).then(checkStatus);
+    return request({
+        method: "PUT",
+        body: file,
+        url: join(this.baseUrl, container, filename),
+        token: this.token,
+        onProgress: onProgress
+    }).then(checkStatus);
 };
 
 Client.prototype.listObjects = function(container, params) {
     params = params || {};
     params.format = params.format || "json";
-    return request("GET", null, join(this.baseUrl, container) + "?" + makeQueryString(params)).then(parseBody).then(attr("body"));
+    return request({
+        method: "GET",
+        url: join(this.baseUrl, container),
+        params: params
+    }).then(parseBody).then(attr("body"));
 };
 
 Client.prototype.listContainers = function(params) {
     params = params || {};
     params.format = params.format || "json";
-    return request("GET", null, this.baseUrl + "?" + makeQueryString(params)).then(parseBody).then(attr("body"));
+    return request({
+        method: "GET",
+        url: this.baseUrl,
+        params: params
+    }).then(parseBody).then(attr("body"));
 };
 
 Client.prototype.delContainer = function(container) {
-    return request("DELETE", null, join(this.baseUrl, container));
+    return request({
+        method: "DELETE",
+        url: join(this.baseUrl, container)
+    });
 };
 
 Client.prototype.delObject = function(container, path) {
-    return request("DELETE", null, join(this.baseUrl, container, path) + "?multipart-manifest=delete").then(function(result) {
-        // 200 will be returned if the object is not a manifest
-        if (result.code !== 204) {
-            return request("DELETE", null, join(this.baseUrl, container, path));
+    return this.getObjectInfo(container, path).then(function(info) {
+        var opts = {
+            method: "DELETE",
+            url: join(this.baseUrl, container, path)
+        };
+        if (info.isSLO) {
+            opts.params = {"multipart-manifest":"delete"};
         }
-        return result;
+        return request(opts);
     }.bind(this));
 };
 
 Client.prototype.createFolder = function(container, path) {
     if (path.charAt(path.length - 1) !== this.delimiter) {
-        path = path + "/";
+        path = path + this.delimiter;
     }
-    return request("PUT", null, join(this.baseUrl, container, path));
+    return request({
+        method: "PUT",
+        url: join(this.baseUrl, container, path)
+    });
 };
 
 var osos = {
@@ -241,30 +286,46 @@ var md5sum = function(blob) {
     });
 };
 
-var request = function(method, body, url, token, onProgress) {
+var request = function(opts) {
+    log("REQUEST", opts);
     return new Promise(function(resolve, reject) {
 
         var xhr = new XMLHttpRequest;
-        xhr.open(method, url, true);
-        xhr.setRequestHeader("X-Auth-Token", token);
+
+        var url = opts.url;
+        if (opts.params) {
+            url += "?" + makeQueryString(opts.params);
+        }
+        xhr.open(opts.method, url, true);
+
+        if (opts.token) {
+            xhr.setRequestHeader("X-Auth-Token", opts.token);
+        }
 
         xhr.addEventListener("load", function() {
-            resolve({
+            var ret = {
                 body: this.responseText,
-                etag: this.getResponseHeader('Etag'),
-                code: this.status});
+                code: this.status
+            };
+            if (opts.getHeaders) {
+                ret.headers = {};
+                opts.getHeaders.forEach(function(header) {
+                    ret.headers[header] = this.getResponseHeader(header);
+                }.bind(this));
+            }
+            resolve(ret);
         });
 
         xhr.addEventListener("error", reject, false);
         xhr.upload.addEventListener("error", reject, false);
 
-        if (onProgress) {
+        if (opts.onProgress) {
             xhr.upload.addEventListener("progress", function(e) {
-                onProgress(e.loaded, e.total);
+                opts.onProgress(e.loaded, e.total);
             });
         }
 
-        xhr.send(body);
+        xhr.send(opts.body);
     });
 };
 

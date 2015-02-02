@@ -23,30 +23,46 @@ var md5sum = function(blob) {
     });
 };
 
-var request = function(method, body, url, token, onProgress) {
+var request = function(opts) {
+    log("REQUEST", opts);
     return new Promise(function(resolve, reject) {
 
         var xhr = new XMLHttpRequest;
-        xhr.open(method, url, true);
-        xhr.setRequestHeader("X-Auth-Token", token);
+
+        var url = opts.url;
+        if (opts.params) {
+            url += "?" + makeQueryString(opts.params);
+        }
+        xhr.open(opts.method, url, true);
+
+        if (opts.token) {
+            xhr.setRequestHeader("X-Auth-Token", opts.token);
+        }
 
         xhr.addEventListener("load", function() {
-            resolve({
+            var ret = {
                 body: this.responseText,
-                etag: this.getResponseHeader('Etag'),
-                code: this.status});
+                code: this.status
+            };
+            if (opts.getHeaders) {
+                ret.headers = {};
+                opts.getHeaders.forEach(function(header) {
+                    ret.headers[header] = this.getResponseHeader(header);
+                }.bind(this));
+            }
+            resolve(ret);
         });
 
         xhr.addEventListener("error", reject, false);
         xhr.upload.addEventListener("error", reject, false);
 
-        if (onProgress) {
+        if (opts.onProgress) {
             xhr.upload.addEventListener("progress", function(e) {
-                onProgress(e.loaded, e.total);
+                opts.onProgress(e.loaded, e.total);
             });
         }
 
-        xhr.send(body);
+        xhr.send(opts.body);
     });
 };
 
