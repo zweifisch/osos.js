@@ -27,13 +27,30 @@ Client.prototype.check = function(container, slice, path) {
     });
 };
 
-Client.prototype.commit = function(container, filename, slices) {
+Client.prototype.updateMetadata = function(container, filename, metadata) {
     return request({
+        method: "POST",
+        headers: metadata,
+        url: join(this.baseUrl, container, filename)
+    });
+};
+
+Client.prototype.commit = function(container, filename, slices, contentType) {
+    var commited = request({
         method: "PUT",
         body: JSON.stringify(slices),
         url: join(this.baseUrl, container, filename),
         params: {"multipart-manifest":"put"}
     });
+    if (contentType) {
+        return commited.then(function() {
+            this.updateMetadata(container, filename, {
+                "Content-Type": contentType
+            });
+        }.bind(this));
+    } else {
+        return commited;
+    }
 };
 
 Client.prototype.uploadSlice = function(container, slice, filename, onProgress) {
@@ -49,6 +66,7 @@ Client.prototype.uploadSlice = function(container, slice, filename, onProgress) 
             return request({
                 method:"PUT",
                 body: slice.blob,
+                headers: slice.blob.type ? null : {"Content-Type": "application/octet-stream"},
                 url: join(self.baseUrl, container, path),
                 token: self.token,
                 onProgress: onProgress
@@ -160,7 +178,8 @@ Client.prototype.upload = function(file, container, opts) {
     });
 
     var commit = function(slices) {
-        return self.commit(container, filename, slices).then(checkStatus);
+        var contentType = file.type ? null : "application/octet-stream";
+        return self.commit(container, filename, slices, contentType).then(checkStatus);
     };
     
     return slices.then(function(slices) {
@@ -193,6 +212,7 @@ Client.prototype.directUpload = function(file, container, opts) {
     return request({
         method: "PUT",
         body: file,
+        headers: file.type ? null : {"Content-Type": "application/octet-stream"},
         url: join(this.baseUrl, container, filename),
         token: this.token,
         onProgress: onProgress

@@ -17,7 +17,7 @@
      document.getElementById("progress").textContent = "progres: " + (p * 100).toFixed(2)
    };
 
-   if (file.size > 1024 * 1024 * 20) {
+   if (file.size > 1024 * 1024 * 10) {
      promise = client.upload(file, "mybucket", {
        onProgress: progress,
        name: file.name,
@@ -36,3 +36,5 @@
    });
  };
 </script>
+
+<a href="list.html">list</a>

@@ -39,6 +39,12 @@ var request = function(opts) {
             xhr.setRequestHeader("X-Auth-Token", opts.token);
         }
 
+        if (opts.headers) {
+            Object.keys(opts.headers).forEach(function(key) {
+                xhr.setRequestHeader(key, opts.headers[key]);
+            });
+        }
+
         xhr.addEventListener("load", function() {
             var ret = {
                 body: this.responseText,
