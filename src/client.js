@@ -44,7 +44,7 @@ Client.prototype.commit = function(container, filename, slices, contentType) {
     });
     if (contentType) {
         return commited.then(function() {
-            this.updateMetadata(container, filename, {
+            return this.updateMetadata(container, filename, {
                 "Content-Type": contentType
             });
         }.bind(this));
@@ -178,8 +178,9 @@ Client.prototype.upload = function(file, container, opts) {
     });
 
     var commit = function(slices) {
-        var contentType = file.type ? null : "application/octet-stream";
-        return self.commit(container, filename, slices, contentType).then(checkStatus);
+        return self.commit(container, filename, slices).then(checkStatus);
+        // var contentType = file.type ? null : "application/octet-stream";
+        // return self.commit(container, filename, slices, contentType).then(checkStatus);
     };
     
     return slices.then(function(slices) {

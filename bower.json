@@ -1,7 +1,7 @@
 {
   "name": "osos.js",
   "main": "dist/osos.js",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "authors": [
     "Feng Zhou <zf.pascal@gmail.com>"
   ],
